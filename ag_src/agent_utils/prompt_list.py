@@ -11,8 +11,18 @@
 GRILQA_PROMPT = """
 You need to understand a question, and plan for the process of constructing a query to solve this question.
 
-Remeber the following RULES:
+Remember the following RULES:
 1. Never try to get a relation from a relation, for example, get_relation(measurement_unit.inverse_temperature_unit.measurement_system).
+2. Action must be a single function call only, for example: get_relation(m.0crbvqz). Never add any explanation or text before or after the function call in the Action line.
+3. Always call get_relation() on an entity or variable BEFORE calling add_fact() on it. Never call add_fact() with a relation you have not seen in a previous Observation.
+4. Never call execute() unless you have already called set_answer(). The order must be: add_fact → (add_max/add_min/add_filter/add_count if needed) → set_answer → execute.
+5. After each add_fact(), read the Observation carefully. If the result is empty or unexpected, try a different relation.
+6. Only call execute() when the query is fully constructed and set_answer() has been called.
+7. Thought must be plain text only. Never use markdown formatting 
+   (no ###, no **, no numbered lists, no backticks).
+8. Never predict or plan future Actions in a Thought. 
+   Only reason about the current step based on the most recent Observation.
+   Wait for the real Observation before proceeding to the next Action.
 
 You can only choose actions from these eight actions:
 1. get_relation(Freebase_mid_or_variable)
@@ -24,14 +34,14 @@ Constrain the query by only returning the result when max_var is the biggest.
 4. add_min(min_var)
 Constrain the query by only returning the result when min_var is the smallest.
 5. add_count(count_var,new_var)
-Add a query step to count the number of elements in the variable count_var and store the result in the variable new_var. 
+Add a query step to count the number of elements in the variable count_var and store the result in new_var.
 6. add_filter(ob1,op,ob2)
-Add a filter constrain, the result need to satisfy "ob1 op ob2". ob1 and ob2 can be variables or digits, op can be >,<,>=,<=. For example, ?x,>,?y or ?x <= 0.3 is valid. 
-For example, if you need ?length is greater than 10, you can use add_filter(?length,>,10) 
+Add a filter constraint. ob1 and ob2 can be variables or digits, op can be >,<,>=,<=.
+For example: add_filter(?length,>,10)
 7. set_answer(answer_var)
-For a SQL-like query, you need to determine which variable to return. Function set_answer is to determine this, it will constrain that the query only returns answer_var.
+Determine which variable to return as the final answer.
 8. execute()
-This is used when you think the query has been completely constructed. Calling this action will execute the query and get final answer.
+Execute the fully constructed query to get the final answer. Only call this after set_answer().
 
 Let's start with an example.
 
@@ -53,7 +63,7 @@ Thought 2 : Base on the relations, the meteorology.tropical_cyclone.category is 
 Action 2 : add_fact(m.0crbvqz, meteorology.tropical_cyclone.category, ?category)
 Observation 2 : "The value of variable category is ['Tropical storm (SSHS)']"
 
-Thought 3 : By executing the current query, we get some instances of ?categoty, they seem some cyclone category. This result meets our expectation. 
+Thought 3 : By executing the current query, we get some instances of ?category, they seem some cyclone category. This result meets our expectation.
 Now we need to constrain that the category of ?cyclone is ?category. So let us first query for the relations of ?category.
 Action 3 : get_relation(?category)
 Observation 3 : {'forward': ['kg.object_profile.prominent_type',
@@ -91,12 +101,12 @@ Observation 5 : {'forward': ['kg.object_profile.prominent_type',
   'meteorology.tropical_cyclone_season.tropical_cyclones',
   'type.type.instance']}
 
-Thought 6 : Base on the relations, the meteorology.tropical_cyclone.formed is the most possible relation for ?cyclone. This is a forward relation. So we constrain (?cyclone,  meteorology.tropical_cyclone.formed, ?time) to get the ?time when ?cyclone formed.
-Action 6 : add_fact(?cyclone,  meteorology.tropical_cyclone.formed, ?time)
+Thought 6 : Base on the relations, the meteorology.tropical_cyclone.formed is the most possible relation for ?cyclone. This is a forward relation. So we constrain (?cyclone, meteorology.tropical_cyclone.formed, ?time) to get the ?time when ?cyclone formed.
+Action 6 : add_fact(?cyclone, meteorology.tropical_cyclone.formed, ?time)
 Observation 6 : "The value of variable ?category is ['Tropical storm (SSHS)']. The value of variable ?cyclone is ['Hurricane Katrina', 'Tormenta tropical Arlene', 'Tempesta tropicale Lee', 'Hurricane Iselle']. The value of variable ?time is ['2014-07-31-08:00', '2005-06-08-08:00', '2011-09-01-08:00', '1981-11-08:00']"
 
 Thought 7 : By executing current query, we get some instances of ?time, they seem some time. This result meets our expectation.
-Now we need to add a argmax constrain. The query only return the result with max ?time.  
+Now we need to add a argmax constrain. The query only return the result with max ?time.
 Action 7 : add_max(?time)
 Observation 7 : "The value of variable ?category is ['Tropical storm (SSHS)']. The value of variable ?cyclone is ['Hurricane Iselle']. The value of variable ?time is ['2014-07-31-08:00']"
 
@@ -105,7 +115,7 @@ Now we need to determine which variable is the answer of this question. Based on
 Action 8 : set_answer(?cyclone)
 Observation 8 : "The value of variable ?cyclone is ['Hurricane Iselle']"
 
-Thought 9 : This sparql seems can represent the intent of the question, execute it to get the answer.
+Thought 9 : The query is fully constructed and set_answer has been called. Now execute to get the final answer.
 Action 9 : execute()
 
 """

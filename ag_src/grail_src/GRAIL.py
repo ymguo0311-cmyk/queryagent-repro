@@ -8,7 +8,7 @@
 -------------------------------------------------
 """
 
-
+from agent_utils.config import TEST_LIMIT
 import openai
 import requests
 from tqdm import tqdm
@@ -93,8 +93,9 @@ def webthink(data_item):
                 print_thought(f'Thought {i} : {thought}')
                 print_action(f'Action {i} : {action}')
 
-        obs,  done, info = try_step(env, action[0].lower() + action[1:])
-
+        if not action or len(action) == 0 or action == 'None':
+            action = "get_relation(m.0m_sb)"  # fallback
+        obs, done, info = try_step(env, action[0].lower() + action[1:])
 
         this_history={'step':i,'Thought':thought,'Action':action,'Observation':obs,'Refine':info.get('Refine'),'current_pyql':env.func_list,'current_sparql':env.pyql.sparql,'good_call':good_call}
 
@@ -167,7 +168,7 @@ def grailqa_main():
     print("save result to: ",result_file_name)
 
 
-    for data_item in json_list[:100]:
+    for data_item in json_list[:TEST_LIMIT]:
 
 
         old_time = time.time()

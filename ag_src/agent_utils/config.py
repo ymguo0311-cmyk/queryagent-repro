@@ -26,9 +26,9 @@ config = {
     'self_correction': True,
     # 'self_correction':False,
     'query_cnt': 0,
-    "use_neo4j": True,
+    "use_neo4j": False,
     
-    'openai_embedding': False,
+    'openai_embedding': True,
     'sentence_transformer': False,
     'model': 'gpt-4o-mini',
     'api_base': 'https://api.openai.com/v1',
@@ -54,14 +54,14 @@ note_info = ''
 local_time = time.localtime(time.time())
 
 if config['openai_embedding']:
-    with open('../../data/fb_relation_embed.json', 'r', encoding='utf-8') as f:
+    with open('/Users/yammmy/Desktop/QueryAgent/data/fb_relation_embed_1536.json', 'r', encoding='utf-8') as f:
         r_embedding_map = json.load(f)
     if config['dataset'] == 'webqsp':
         with open('../../data/WebQSP_test_question_embed.json', 'r',
                   encoding='utf-8') as f:
             q_embedding_map = json.load(f)
     elif config['dataset'] == 'grailqa':
-        with open('../../data/grailqa_question_embed.json', 'r',
+        with open('/Users/yammmy/Desktop/QueryAgent/data/grailqa_question_embed_1536.json', 'r',
                   encoding='utf-8') as f:
             q_embedding_map = json.load(f)
     elif config['dataset'] == 'graphq':
@@ -97,13 +97,13 @@ else:
 
 
 if config['dataset'] == 'grailqa':
-    SPARQLPATH = "https://dbpedia.org/sparql"
+    SPARQLPATH = "http://localhost:3001/sparql"
 elif config['dataset'] == 'graphq':
-    SPARQLPATH = "https://dbpedia.org/sparql"
+    SPARQLPATH = "http://localhost:3001/sparql"
 elif config['dataset'] == 'metaqa':
-    SPARQLPATH = "https://dbpedia.org/sparql"
+    SPARQLPATH = "http://localhost:3001/sparql"
 elif config['dataset'] == 'webqsp':
-    SPARQLPATH = "https://dbpedia.org/sparql"
+    SPARQLPATH = "http://localhost:3001/sparql"
 elif config['dataset'] == 'wikisql':
     data_path = "../../data/wikisql/wikisql_test.json"
     db = records.Database('sqlite:///../../data/wikisql/test.db')
@@ -128,4 +128,4 @@ result_file_name += (config['dataset'] + '_' + safe_model_name + '_' + (
 import random
 all_key=['OPEN_AI_KEY']
 random.shuffle(all_key)
-TEST_LIMIT = 10
+TEST_LIMIT = 500

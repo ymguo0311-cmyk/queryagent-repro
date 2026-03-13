@@ -425,7 +425,7 @@ class WikiEnv():
         tail_relations = list(set(tail_relations))
 
         if len(head_relations + tail_relations) > 1:
-            sorted_relation = faiss_filter(self.question, head_relations + tail_relations)[:40]
+            sorted_relation = faiss_filter(self.question, head_relations + tail_relations, entity_mid=entity_id)[:40]
         else:
             sorted_relation = head_relations + tail_relations
 

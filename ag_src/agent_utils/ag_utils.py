@@ -165,16 +165,18 @@ def f1_score(pred, golden):
 
 def llm(prompt, model_name, stop=["\n"]):
     got_result = False
-    while got_result != True:
+    while not got_result:
         try:
             current_key = all_key[0]
             del all_key[0]
             all_key.append(current_key)
 
-            openai.api_key = current_key
-            openai.api_base = config['api_base']
-
-            response = openai.ChatCompletion.create(
+            from openai import OpenAI
+            client = OpenAI(
+                api_key=current_key,
+                base_url=config['api_base']
+            )
+            response = client.chat.completions.create(
                 model=config['model'],
                 messages=[{'role': 'user', 'content': prompt}],
                 temperature=0,
@@ -184,21 +186,19 @@ def llm(prompt, model_name, stop=["\n"]):
                 presence_penalty=0,
                 stop=stop
             )
-
-            response = response["choices"][0]['message']['content'].strip()
+            response = response.choices[0].message.content.strip()
             got_result = True
 
         except Exception as e:
-            if 'You exceeded your current quota' in str(e) or 'The OpenAI account associated with this API key' in str(e):
+            if 'You exceeded your current quota' in str(e):
                 print('bad key: ', current_key)
-            elif "This model's maximum context length is" in str(e) or "Request too large for" in str(e):
+            elif "maximum context length" in str(e) or "Request too large" in str(e):
                 print(e)
                 return PROMPT_TOO_LONG_ERROR
             else:
                 print(e)
 
     return response
-
 
 def abandon_rels(relation):
     if config['dataset'] == 'webqsp':
