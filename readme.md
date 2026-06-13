@@ -11,7 +11,7 @@ Reproduction of [QueryAgent (Huang et al., ACL 2024)](https://arxiv.org/abs/2403
 
 QueryAgent solves Knowledge Base Question Answering (KBQA) by decomposing a question into a sequence of atomic actions (get_relation, add_fact, add_count, etc.) that progressively construct a structured query (PyQL), which is then compiled to SPARQL and executed against a Freebase endpoint. A relation ranking module re-ranks candidate relations at each step using embedding-based cosine similarity.
 
-This reproduction covers the **GrailQA** dataset only. Results use `gpt-4o-mini` or `deepseek/deepseek-chat` as the backbone LLM (see [Notes on LLM](#notes-on-llm)).
+This reproduction covers the **GrailQA** dataset only. 
 
 ---
 
@@ -88,7 +88,7 @@ SPARQLPATH = 'http://localhost:3001/sparql'   # your Freebase endpoint
 config = {
     'dataset': 'grailqa',
     'model': 'gpt-3.5-turbo',
-    'api_base': 'https://api.openai.com/v1',  # or OpenRouter base URL
+    'api_base': 'https://api.openai.com/v1', 
     'openai_embedding': True,
     'sentence_transformer': False,
     'use_neo4j': False,
@@ -127,7 +127,7 @@ tail -f ../logs/run.log
 Logs and results are saved to the `logs/` directory as `.json` files, named by model and timestamp:
 
 ```
-logs/grailqa_gpt-4o-mini_sc_el_openai_emb_MM_DD_HH_MM_SS.json
+logs/grailqa_gpt-3.5-turboi_sc_el_openai_emb_MM_DD_HH_MM_SS.json
 ```
 
 Running F1 and EM scores are printed to stdout after each question.
@@ -149,7 +149,6 @@ Controlled via `config.py`:
 | Config | Mode | Description |
 |---|---|---|
 | `openai_embedding: True` | OE | Pre-computed OpenAI embedding cosine similarity (default) |
-| `sentence_transformer: True` | ST | Sentence Transformer (`all-mpnet-base-v2`) cosine similarity |
 | `use_neo4j: False` | UDP | Neo4j vector index semantic ranking |
 
 
