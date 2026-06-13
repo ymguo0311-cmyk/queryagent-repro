@@ -1,15 +1,19 @@
 # -*- coding: utf-8 -*-
 """
 -------------------------------------------------
-   File Name : ag_utils.py 
-   Description :  utils func
-   Author :       HX / Modified for Neo4j backend
+   File Name   : ag_utils.py
+   Description : Utility functions for agent execution, query helpers,
+                 logging, JSON IO, metrics, and dataset preprocessing.
+   Author      : HX / Modified for optional Neo4j support
 -------------------------------------------------
-   CHANGES:
-   1. execute_sparql() -> Mock mode, returns structured fake data
-   2. id2label() -> Mock mode, no longer calls SPARQLWrapper
-   3. NEO4J_DRIVER -> kept but wrapped in try/except (won't crash if Neo4j offline)
-   4. execute_cypher_with_udp() -> kept for future Neo4j integration
+   Notes:
+   1. execute_sparql() calls the configured SPARQL endpoint through SPARQLWrapper.
+   2. id2label() is a lightweight fallback that returns mock labels for mock IDs
+      and otherwise returns the original entity ID.
+   3. NEO4J_DRIVER is initialized defensively; Cypher helper calls fall back when
+      Neo4j is unavailable.
+   4. MOCK_* constants are fallback data for Neo4j/Cypher paths, not the active
+      execute_sparql() implementation.
 -------------------------------------------------
 """
 from SPARQLWrapper import SPARQLWrapper, JSON
@@ -25,7 +29,7 @@ import openai
 import requests
 
 
-# ── Neo4j driver (optional, won't crash if Neo4j not running) ──────────────
+# ── Optional Neo4j driver initialization ───────────────────────────────────
 try:
     from neo4j import GraphDatabase
     NEO4J_DRIVER = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "Gym070311"))
@@ -34,10 +38,10 @@ except Exception as _neo4j_err:
     NEO4J_DRIVER = None
     print(f"[WARN] Neo4j not available: {_neo4j_err}. Running in Mock mode.")
 
-# ── SPARQL template (kept for reference, not used in mock mode) ────────────
+# ── SPARQL template kept for Freebase label-query construction ─────────────
 sparql_id_fb = """PREFIX : <http://rdf.freebase.com/ns/>\nSELECT DISTINCT ?tailEntity\nWHERE {\n  ?entity :type.object.name ?tailEntity .\n    FILTER(?entity = :%s)  \n}"""
 
-# ── Mock data: realistic Freebase-style relations for GrailQA ─────────────
+# ── Fallback data used by Cypher/Neo4j helper paths ───────────────────────
 MOCK_RELATIONS = {
     "forward": [
         "people.person.date_of_birth",
@@ -243,8 +247,8 @@ def execute_sql(sql_txt):
 
 def execute_cypher_with_udp(cypher_txt):
     """
-    执行 Cypher 查询 (future: 调用 Semantic UDP)
-    当 Neo4j 可用时启用。
+    Execute a Cypher query through the optional Neo4j driver.
+    If Neo4j is unavailable, return MOCK_QUERY_RESULTS as a safe fallback.
     """
     if NEO4J_DRIVER is None:
         print_error("[execute_cypher_with_udp] Neo4j not available, returning mock.")
@@ -262,7 +266,7 @@ def execute_cypher_with_udp(cypher_txt):
         return []
 
 def execute_sparql(sparql_txt):
-    # execute SPARQL
+    # Execute SPARQL through the configured endpoint.
     config['query_cnt'] += 1
     if config['dataset'] in ['grailqa', 'webqsp', 'graphq']:
         sparql_txt = 'PREFIX : <http://rdf.freebase.com/ns/>\n' + sparql_txt
@@ -285,85 +289,17 @@ def execute_sparql(sparql_txt):
         print(sparql_txt)
         return []
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  CRITICAL FIX: execute_sparql — Mock Mode
-#  inactive SPARQL endpoint (114.212.81.217:8896) 
-#  Orginal function: send SPARQL to Virtuoso endpoint，execute query
-#  Mock function： block SPARQL，return Mock data
-#  After neo4j is ready，replace Mock branch with execute_cypher_with_udp() 
-# ══════════════════════════════════════════════════════════════════════════════
-'''
-def execute_sparql(sparql_txt):
-    config['query_cnt'] += 1 # 计数器： 记录Agent调用了多少次查询
-
-    # ── output the of LLM ──────────────────────────
-    print_action(f"[SPARQL #{config['query_cnt']}] {sparql_txt[:200]}")
-
-    sparql_upper = sparql_txt.upper()
-
-    #-----test for certain question------
-    if '?RELATION' in sparql_upper and 'm.0m_sb' in sparql_txt.lower():
-        print("[DEBUG] Using Neo4j for m.0m_sb relations...")
-        
-        try:
-            with NEO4J_DRIVER.session() as session:
-                # 查询出边
-                forward_result = session.run("""
-                    MATCH (e:Entity {mid: "m.0m_sb"})-[r:RELATION]->()
-                    RETURN DISTINCT r.type AS relation
-                """)
-                forward = [{"relation": f"http://rdf.freebase.com/ns/{row['relation']}"} 
-                          for row in forward_result]
-                
-                # 查询入边
-                backward_result = session.run("""
-                    MATCH ()-[r:RELATION]->(e:Entity {mid: "m.0m_sb"})
-                    RETURN DISTINCT r.type AS relation
-                """)
-                backward = [{"relation": f"http://rdf.freebase.com/ns/{row['relation']}"} 
-                           for row in backward_result]
-                
-                result = forward + backward
-                print_obs(f"[Neo4j] Returning {len(result)} relations from Neo4j")
-                return result
-        except Exception as e:
-            print_error(f"[Neo4j Error] {e}, falling back to Mock")
-    # get_relation 查询 (SELECT ?relation)
-    if '?RELATION' in sparql_upper:
-        mock_relations = (
-            [{"relation": f"http://rdf.freebase.com/ns/{r}"}
-            for r in MOCK_RELATIONS["forward"]]
-            +
-            [{"relation": f"http://rdf.freebase.com/ns/{r}"}
-             for r in MOCK_RELATIONS["backward"]]
-        )
-        print_obs(f"[Mock] Returning {len(mock_relations)} relations.")
-        return mock_relations
-        
-    # id2label 查询 (SELECT ?tailEntity)
-    if '?TAILENTITY' in sparql_upper:
-        print_obs("[Mock] Returning mock tailEntity.")
-        return [{"tailEntity": "mock_entity_label"}]
-
-    # execute / add_fact 查询 (general SELECT)v
-    print_obs("[Mock] Returning mock query result.")
-    return MOCK_QUERY_RESULTS
-'''
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  CRITICAL FIX: id2label — Mock Mode
-#   Original function: transform Freebase ID to readable name
-#   Current Function: return entity_id itself as label. Replace by neo4j query afterwards
-#  原来直接调 SPARQLWrapper，endpoint 死了会在这里崩。
-# ══════════════════════════════════════════════════════════════════════════════
+# ── Entity label fallback ────────────────────────────────────────────────
+# id2label is intentionally lightweight here: it does not call SPARQLWrapper.
+# Mock IDs get readable mock labels; real IDs are returned unchanged.
 def id2label(entity_id):
     
-    # 如果是 mock entity，给一个可读的假名字
+    # Return a stable placeholder for missing or unnamed entities.
     if entity_id == "UnName_Entity" or entity_id is None:
         return "UnName_Entity"
     if "mock" in str(entity_id).lower():
         return f"MockLabel({entity_id})"
-    # 对真实 mid 也直接返回 id（不会崩，但没有真实 label）
+    # For real MIDs, preserve the original ID instead of querying labels here.
     return entity_id
 
 

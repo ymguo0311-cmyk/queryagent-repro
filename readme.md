@@ -1,93 +1,163 @@
-# QueryAgent: A Reliable and Efficient Reasoning Framework with Environmental Feedback based Self-Correction
+# QueryAgent Reproduction — GrailQA
+
+Reproduction of [QueryAgent (Huang et al., ACL 2024)](https://arxiv.org/abs/2403.11886) on the GrailQA dataset, with an updated relation ranking module using OpenAI `text-embedding-3-small` (1536d) embeddings in place of the original unreleased embedding files.
+
+> **Original paper:** QueryAgent: A Reliable and Efficient Reasoning Framework with Environmental Feedback-based Self-Correction (ACL 2024)
+> **Original repository:** https://github.com/cdhx/QueryAgent
 
 ---
- [![Contributions Welcome](https://img.shields.io/badge/Contributions-Welcome-brightgreen.svg?style=flat-square)](https://github.com/dki-lab/GrailQA/issues)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
-[![language-python3](https://img.shields.io/badge/Language-Python3-blue.svg?style=flat-square)](https://www.python.org/)
-[![made-with-Pytorch](https://img.shields.io/badge/Made%20with-Pytorch-orange.svg?style=flat-square)](https://pytorch.org/)
-[![paper](https://img.shields.io/badge/Paper-ACL2024-lightgrey?style=flat-square)](https://arxiv.org/abs/2310.15517)
-<img width="1175" alt="image" src="https://raw.githubusercontent.com/cdhx/img_store/main/queryagent.png">
 
-[(Paper) QueryAgent: A Reliable and Efficient Reasoning Framework with Environmental Feedback based Self-Correction (ACL 2024)](https://arxiv.org/abs/2403.11886)
+## Overview
 
-> Employing Large Language Models (LLMs)
-for semantic parsing has achieved remarkable
-success. However, we find existing methods fall short in terms of reliability and efficiency when hallucinations are encountered. In
-this paper, we address these challenges with a
-framework called QueryAgent, which solves
-a question step-by-step and performs stepwise self-correction. We introduce an environmental feedback-based self-correction method
-called ERASER. Unlike traditional approaches,
-ERASER leverages rich environmental feedback in the intermediate steps to perform selective and differentiated self-correction only
-when necessary. Experimental results demonstrate that QueryAgent notably outperforms all
-previous few-shot methods using only one example on GrailQA and GraphQ by 7.0 and 15.0
-F1. Moreover, our approach exhibits superiority in terms of efficiency, including runtime,
-query overhead, and API invocation costs. By
-leveraging ERASER, we further improve another baseline (i.e., AgentBench) by approximately 10 points, revealing the strong transferability of our approach
+QueryAgent solves Knowledge Base Question Answering (KBQA) by decomposing a question into a sequence of atomic actions (get_relation, add_fact, add_count, etc.) that progressively construct a structured query (PyQL), which is then compiled to SPARQL and executed against a Freebase endpoint. A relation ranking module re-ranks candidate relations at each step using embedding-based cosine similarity.
 
+This reproduction covers the **GrailQA** dataset only. Results use `gpt-4o-mini` or `deepseek/deepseek-chat` as the backbone LLM (see [Notes on LLM](#notes-on-llm)).
 
+---
 
-# KB and data
+## Requirements
 
-## KB employment
-You can follow this to employee Freebase on your local device:  
+- Python 3.10
+- A Freebase SPARQL endpoint (Virtuoso recommended — see [Setup](#setup))
+- An OpenAI API key (for LLM calls and optionally for embedding generation)
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+> **Note:** The full `requirements.txt` reflects the lab server environment and contains packages beyond what this project strictly requires. Core dependencies are: `openai`, `sentence-transformers`, `scikit-learn`, `SPARQLWrapper`, `neo4j`, `tqdm`, `torch`.
+
+---
+
+## Setup
+
+### 1. Freebase SPARQL Endpoint
+
+This reproduction requires a running Freebase SPARQL endpoint. Follow the setup instructions from the original GrailQA repository to deploy Freebase on Virtuoso:
+
 https://github.com/dki-lab/GrailQA?tab=readme-ov-file#setup
 
-Please remember to modify the `SPARQLPATH ` in `ag_src/agent_utils/config` to your own endpoint.
+Once Virtuoso is running, note your endpoint URL (e.g. `http://localhost:3001/sparql`).
 
-## Embedding file
+If your endpoint is running on a remote server, set up an SSH tunnel to forward the port locally:
 
-Due to some policy restrictions, 
-we can't open source the openai embedding file(`fb_relation_embed.json`,`grailqa_question_embed.json`,`graphq_question_embed.json`,`WebQSP_test_question_embed.json`).
-
-You can obtain the embedding yourself based on the code in `similarity_search.py->get_openai_embedding`.
-You need to cache the embedding of all freebase relation (see in `data\fb_relation.txt`),
-and the embedding of all questions.
-
-Make sure the embedding file in a json file(dict), in the format of {question1:emb_ques_1,question2:emb_ques_2,...} and {relation1:emb_rel_1,relation2:emb_rel_2,...}.
-An example is : ```{'base.sa3base.sa3_view.elements_catalog':[-0.00011903620179509744, 0.003563345642760396,...],...}```
-
-Please put the embedding file under the `data` directory.
-
-The cost of this part is very low, 
-less than $1 for all the dataset's relations and questions with the use of cache.
-
-Anyway, If you indeed have any problem in implementing this, please feel free to contact us.
-
-
-# Run
-1. config the hyper-parameters in `agent_utils/config.py`
-2. fill the api-key and the KB query endpoint in `agent_utils/config.py`
-3. execute `agent_utils/run_exp.py`
-
-
-# File Structure
-
-```
-QueryAgent/
-├── ag_src: source code directory 
-|  ├── agent_utils: some tool functions file 
-|     ├── ag_utils.py: the tool function of Agent framework
-|     ├── similarity_search.py: the relation ranking module
-|     ├── run_exp.py: the main function entrance, excute this file to 
-|     └── config.py: the configuration file for experiment
-|  ├── grail_src: code for GrailQA experiment
-|     ├── GRAIL.py: the main function of GrailQA experiment
-|     ├── sparql_generator.py: the PyQL compiler(the action set of QueryAgent) for GrailQA
-|     └── wikienv.py: the detail function of GrailQA experiment 
-|  ├── graphq_src: code for GraphQ experiment
-|     └──  the file struct of other dataset is similar to grail_src 
-|  ├── webqsp_src: code for WebQSP experiment
-|  └── meta_src: code for MetaQ experiment
-├── data: the dataset for experiment
-|     ├──GrailQA_v1.0    
-|     ├──GraphQ
-|     ├──metaQA
-|     └──WebQSP
+```bash
+ssh -L <local_port>:localhost:<remote_port> <user>@<server> -N
 ```
 
-# Citation
+Example:
+```bash
+ssh -L 3001:localhost:3001 user@your-server -N
+```
+
+Keep this terminal open while running experiments.
+
+### 2. Embedding Files
+
+The original paper's embedding files are not publicly released. Re-generate them using `text-embedding-3-small` (1536d):
+
+```bash
+# Generate relation embeddings
+python3 ag_src/agent_utils/generate_relation_embed.py
+
+# Generate question embeddings for GrailQA
+python3 ag_src/agent_utils/generate_question_embed.py
+```
+
+Place the output files under `data/`:
+```
+data/
+├── fb_relation_embed_1536.json
+└── grailqa_question_embed_1536.json
+```
+
+Format: `{"relation_name": [0.123, 0.456, ...], ...}`
+
+### 3. Configuration
+
+Edit `ag_src/agent_utils/config.py`:
+
+```python
+# Required
+all_key = ['your-openai-or-openrouter-api-key']
+SPARQLPATH = 'http://localhost:3001/sparql'   # your Freebase endpoint
+
+# Model settings
+config = {
+    'dataset': 'grailqa',
+    'model': 'gpt-3.5-turbo',
+    'api_base': 'https://api.openai.com/v1',  # or OpenRouter base URL
+    'openai_embedding': True,
+    'sentence_transformer': False,
+    'use_neo4j': False,
+    'self_correction': True,
+    'golden_el': False,
+    TEST_LIMIT: 500                        # number of questions to evaluate
+}
+```
+
+---
+
+## Running Experiments
+
+```bash
+cd ag_src
+export PYTHONPATH=$PYTHONPATH:$(pwd)
+python3 agent_utils/run_exp.py
+```
+
+To run in the background (recommended for remote servers):
+
+```bash
+nohup python3 agent_utils/run_exp.py > ../logs/run.log 2>&1 &
+```
+
+Monitor progress:
+
+```bash
+tail -f ../logs/run.log
+```
+
+---
+
+## Results
+
+Logs and results are saved to the `logs/` directory as `.json` files, named by model and timestamp:
 
 ```
+logs/grailqa_gpt-4o-mini_sc_el_openai_emb_MM_DD_HH_MM_SS.json
+```
+
+Running F1 and EM scores are printed to stdout after each question.
+
+### Reproduction Results (GrailQA dev set)
+
+| Backbone LLM | Ranking | Questions | F1 | EM |
+|---|---|---|---|---|
+| GPT-3.5-turbo (paper) | OpenAI Embedding (OE) | Full dev | 56.3 | — |
+| GPT-3.5-turbo | OpenAI Embedding (OE) | 500 | ~57.0 | ~51.0 |
+
+
+---
+
+## Relation Ranking Modes
+
+Controlled via `config.py`:
+
+| Config | Mode | Description |
+|---|---|---|
+| `openai_embedding: True` | OE | Pre-computed OpenAI embedding cosine similarity (default) |
+| `sentence_transformer: True` | ST | Sentence Transformer (`all-mpnet-base-v2`) cosine similarity |
+| `use_neo4j: False` | UDP | Neo4j vector index semantic ranking |
+
+
+---
+
+## Citation
+
+```bibtex
 @misc{huang2024queryagentreliableefficientreasoning,
       title={QueryAgent: A Reliable and Efficient Reasoning Framework with Environmental Feedback-based Self-Correction}, 
       author={Xiang Huang and Sitao Cheng and Shanshan Huang and Jiayu Shen and Yong Xu and Chaoyun Zhang and Yuzhong Qu},
@@ -97,6 +167,4 @@ QueryAgent/
       primaryClass={cs.CL},
       url={https://arxiv.org/abs/2403.11886}, 
 }
-
 ```
-

@@ -30,14 +30,15 @@ config = {
     
     'openai_embedding': True,
     'sentence_transformer': False,
-    'model': 'gpt-4o-mini',
+    'model': 'gpt-3.5-turbo',
     'api_base': 'https://api.openai.com/v1',
 
 }
-NEO4J_DRIVER = GraphDatabase.driver(
-    "bolt://localhost:7687",
-    auth=("neo4j", "Gym070311")
-)
+#NEO4J_DRIVER = GraphDatabase.driver(
+#    "bolt://localhost:7687",
+#    auth=("neo4j", "password")
+#)
+
 
 EMBEDDING_MODEL = "text-embedding-3-small"   
 # openai embedding and sentence transformer can not be set to true at the same time
@@ -126,6 +127,6 @@ result_file_name += (config['dataset'] + '_' + safe_model_name + '_' + (
                         '_' + note_info if note_info != '' else "")
 
 import random
-all_key=['OPEN_AI_KEY']
+all_key=['']
 random.shuffle(all_key)
 TEST_LIMIT = 500

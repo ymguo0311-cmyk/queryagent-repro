@@ -17,6 +17,8 @@ class WikiEnv():
         self.current_var_value = {}
         self.relation_map = {}
         self.error_info_list = []
+	self.exe_res = []
+
 
         self.pyql = PyQL()
         self.func_list = []
@@ -554,11 +556,34 @@ class WikiEnv():
         return True
 
     def execute(self):
-        if self.exe_res!=[]:
-            self.obs=self.exe_res
+        if self.exe_res != []:
+            self.obs = self.exe_res
         else:
-            self.obs = execute_sparql(self.pyql.sparql)
-
+            if config.get('use_neo4j', False):
+                from grail_src.pyql_to_cypher import PyQLToCypher
+                from agent_utils.config import NEO4J_DRIVER
+                try:
+                    translator = PyQLToCypher()
+                    cypher = translator.translate(self.pyql.func_list)
+                    with NEO4J_DRIVER.session() as session:
+                        result = session.run(cypher)
+                        rows = list(result)
+                        if rows:
+                            keys = list(rows[0].keys())
+                            # 取第一个key的值作为答案列表
+                            self.obs = [row[keys[0]] for row in rows]
+                            # 如果返回的是FBNode，提取mid
+                            self.obs = [
+                                r.get('mid', str(r)) if hasattr(r, 'get') else str(r)
+                                for r in self.obs
+                            ]
+                        else:
+                            self.obs = []
+                except Exception as e:
+                    print(f"[Neo4j execute error] {e}, falling back to Virtuoso")
+                    self.obs = execute_sparql(self.pyql.sparql)
+            else:
+                self.obs = execute_sparql(self.pyql.sparql)
     def step(self, action):
         info = {"steps": self.steps,'em': 0, 'f1': 0,
                 "qid": self.qid, "question": self.question, "gt_answer": self.gt_answer,
