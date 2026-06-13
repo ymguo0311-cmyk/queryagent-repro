@@ -27,7 +27,7 @@ Install dependencies:
 pip install -r requirements.txt
 ```
 
-> **Note:** The full `requirements.txt` reflects the lab server environment and contains packages beyond what this project strictly requires. Core dependencies are: `openai`, `sentence-transformers`, `scikit-learn`, `SPARQLWrapper`, `neo4j`, `tqdm`, `torch`.
+> **Note:** The current `requirements.txt` has commented out NVIDIA/CUDA and vLLM dependencies for a standard environment. If you need GPU acceleration, simply uncomment those lines before running `pip install`. Core dependencies are: `openai`, `sentence-transformers`, `scikit-learn`, `SPARQLWrapper`, `neo4j`, `tqdm`, `torch`.
 
 ---
 
